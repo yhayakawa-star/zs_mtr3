@@ -73,11 +73,24 @@ ALTER TABLE `mtr_node`
   MODIFY `wrst` FLOAT NOT NULL,
   MODIFY `stdev` FLOAT NOT NULL;
 
+DROP TABLE IF EXISTS `mtr_node_ip`;
+CREATE TABLE `mtr_node_ip` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `mtr_node_id` BIGINT NOT NULL,
+  `node` varchar(256) NOT NULL, -- IP or ???
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+ALTER TABLE mtr_node_ip ADD INDEX mtr_node_id_index (mtr_node_id);
+
+
 -- ALTER TABLE mtr_node MODIFY `wrst` float(6,1);
 
 create index mtr_host_index on mtr (host_index);
 create index mtr_node_index on mtr_node (mtr_index);
 create index mtr_dateid_index on mtr (dateid);
+
+
+
 
 create user 'mtr'@'localhost' identified by 'Passwd88!';
 set password for 'mtr'@'localhost' = 'Passwd88!';

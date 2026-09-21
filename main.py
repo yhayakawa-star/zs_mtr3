@@ -128,7 +128,7 @@ def get_latest_id():
 
 
 def insert_db(sql, val=None):
-    #    print(sql)
+    # print(sql)
     if val is None:
         cursor.execute(sql)
     else:
@@ -404,6 +404,11 @@ def get_mtr_id_by_daterange(startdate, enddate, sme, dest):
 
 def get_mtr_nodes_by_mtrid(mtrid):
     sql = f"select idx,node,loss,snt,last,ave,best,wrst,stdev from mtr_node where mtr_index={mtrid} order by idx"
+    # SELECT      n.idx,     CONCAT_WS(', ', n.node, ip.node) AS nodes,     n.loss,     n.snt,     n.last,     n.ave,     n.best,     n.wrst,     n.stdev FROM      mtr_node n LEFT JOIN      mtr_node_ip ip ON n.id = ip.mtr_node_id WHERE      n.id = 143897549;
+    sql = (
+        f"SELECT n.idx, CONCAT_WS(' ', n.node, ip.node) AS nodes, "
+        f"n.loss, n.snt, n.last, n.ave, n.best, n.wrst, n.stdev FROM mtr_node n "
+        f"LEFT JOIN  mtr_node_ip ip ON n.id = ip.mtr_node_id WHERE n.mtr_index = {mtrid} order by idx;")
     cursor.execute(sql)
     return cursor.fetchall()
 
@@ -439,6 +444,12 @@ def insert_mtr_node(mid, idx, node, loss, snt, last, ave, best, wrst, stdev):
     return insert_db(sql, val)
 
 
+def insert_mtr_node_ip(mtr_node_id, ip):
+    sql = "insert into mtr_node_ip(mtr_node_id, node) values(%s, %s)"
+    val = (mtr_node_id, ip)
+    return insert_db(sql, val)
+
+
 reMCmd = re.compile('mtr\s([\w\-]+)\s+([\w\.\-]+)')
 reMStart = re.compile('Start:\s+([\d\-:]+)T([\d:]+)([+\-]\d+)')
 reMHost = re.compile('HOST:\s+([\w\-]+)\s+.*')
@@ -446,10 +457,13 @@ reMNode = re.compile(
     '\s+(\d+)\..*\s+([\d\.]+)\s+([\d\.]+)%\s+(\d+)\s+([\d\.]+)\s+([\d\.]+)\s+([\d\.]+)\s+([\d\.]+)\s+([\d\.]+)')
 reMNode2 = re.compile(
     '\s+(\d+)\..*\s+(\?+)\s+([\d\.]+)\s+(\d+)\s+([\d\.]+)\s+([\d\.]+)\s+([\d\.]+)\s+([\d\.]+)\s+([\d\.]+)')
+reMNodeOnly = re.compile('\s+([\d\.]+).*')
 
 # ttp_code:000,time_namelookup:0.000000,time_connect:0.000000,speed_download:0,time_appconnect:0.000000,time_starttransfer:0.000000,time_total:0.016776
 reCurH = re.compile('curl.*max-time\s+\d+\s+([\w\.:/]+)')
-reCur = re.compile('http_code:(\d+),time_namelookup:([\d\.]+),time_connect:([\d\.]+),speed_download:([\d\.]+),time_appconnect:([\d\.]+),time_starttransfer:([\d\.]+),time_total:([\d\.]+)')
+reCur = re.compile(
+    'http_code:(\d+),time_namelookup:([\d\.]+),time_connect:([\d\.]+),speed_download:([\d\.]+),time_appconnect:([\d\.]+),time_starttransfer:([\d\.]+),time_total:([\d\.]+)')
+
 
 def get_cur_id(dir, name, host_index):
     sql = (f"SELECT id from curl "
@@ -462,9 +476,10 @@ def get_cur_id(dir, name, host_index):
     else:
         return 0
 
+
 def insert_cur_node(ifconfig, dir, name, host_index, curName,
                     http_code, time_namelookup, time_connect,
-               speed_download, time_appconnect, time_starttransfer, time_total):
+                    speed_download, time_appconnect, time_starttransfer, time_total):
     sql = ("insert into curl(ifconfig, dir, name, host_index, url, "
            "http_code, time_namelookup, "
            "time_connect, speed_download, time_appconnect, time_starttransfer, time_total) "
@@ -479,6 +494,7 @@ def insert_cur_node(ifconfig, dir, name, host_index, curName,
     cursor.execute(sql, val)
 
     return insert_db(sql, val)
+
 
 def insert_cur_result(dir, name, host_index, ifconfig):
     # print("insert_cur_result")
@@ -498,12 +514,13 @@ def insert_cur_result(dir, name, host_index, ifconfig):
                   f"{m.group(6)}, {m.group(7)}")
             if curName:
                 cid = insert_cur_node(ifconfig, dir, name, host_index, curName,
-                           m.group(1), m.group(2), m.group(3), m.group(4),
-                           m.group(5), m.group(6), m.group(7))
+                                      m.group(1), m.group(2), m.group(3), m.group(4),
+                                      m.group(5), m.group(6), m.group(7))
                 node_count += 1
             else:
                 print("curl http error " + l.strip())
     return node_count
+
 
 def insert_mtr(ifconfig, dir, name, host_index, host, mtr_option, dest, start1, start2, tz, dateid):
     sql = ("insert into mtr(ifconfig, dir, name, host_index, host,"
@@ -513,12 +530,14 @@ def insert_mtr(ifconfig, dir, name, host_index, host, mtr_option, dest, start1, 
     val = (' '.join(ifconfig), dir, name, host_index, host, mtr_option, dest, start1, start2, tz, dateid)
     return insert_db(sql, val)
 
+
 def insert_mtr_result(dir, name, host_index, ifconfig):
     lines = read_file(dir, name)
     cmdOpt = cmdIP = cmdStart1 = cmdStart2 = cmdTz = cmdHost = ''
     mid = 0
 
     node_count = 0
+    znode_id = 0
     for l in lines:
         m = reMCmd.match(l)
         if m:
@@ -551,16 +570,28 @@ def insert_mtr_result(dir, name, host_index, ifconfig):
         if m:
             print(
                 f"Node {m.group(1)}, {m.group(2)}, {m.group(3)}, {m.group(4)}, {m.group(5)}, {m.group(6)}, {m.group(7)}, {m.group(8)}, {m.group(9)}")
-            insert_mtr_node(mid, {m.group(1)}, {m.group(2)}, {m.group(3)}, {m.group(4)}, {m.group(5)}, {m.group(6)},
-                            {m.group(7)}, {m.group(8)}, {m.group(9)})
+            znode_id = insert_mtr_node(mid, {m.group(1)}, {m.group(2)}, {m.group(3)}, {m.group(4)}, {m.group(5)},
+                                       {m.group(6)},
+                                       {m.group(7)}, {m.group(8)}, {m.group(9)})
             node_count += 1
+            continue
         m = reMNode2.match(l)
         if m:
             print(
                 f"Node2 {m.group(1)}, {m.group(2)}, {m.group(3)}, {m.group(4)}, {m.group(5)}, {m.group(6)}, {m.group(7)}, {m.group(8)}, {m.group(9)}")
-            insert_mtr_node(mid, {m.group(1)}, {m.group(2)}, {m.group(3)}, {m.group(4)}, {m.group(5)}, {m.group(6)},
-                            {m.group(7)}, {m.group(8)}, {m.group(9)})
+            znode_id = insert_mtr_node(mid, {m.group(1)}, {m.group(2)}, {m.group(3)}, {m.group(4)}, {m.group(5)},
+                                       {m.group(6)},
+                                       {m.group(7)}, {m.group(8)}, {m.group(9)})
             node_count += 1
+            continue
+        print(l)
+        m = reMNodeOnly.match(l)
+        if m:
+            print("NodeOnly")
+            print(f"{m.group(1)}")
+            print(znode_id)
+            insert_mtr_node_ip(znode_id, m.group(1))
+
     return node_count
 
 
@@ -574,11 +605,12 @@ def read_file(dir, file):
 reSme = re.compile(
     r'.*The\s+Zscaler\s+hostname\s+for\s+this\s+proxy\s+appears\s+to\s+be\s+\<span\s+class="detailOutput"\>([\w\-]+)\<.*')
 
+
 # insert infor. of a leaf dir.
 # prefix is the result file prefix ("mtr-", "cur-"), get_id/insert_result are
 # the matching per-command lookup and inserter.
 def insert_leaf_dir(dir, prefix, get_id, insert_result):
-    # print(f"--- insert_leaf_dir {dir}")
+    print(f"--- insert_leaf_dir {dir}")
     onlyfiles = [f for f in listdir(dir) if isfile(join(dir, f))]
     flag = 0
     hostname = ''
@@ -632,10 +664,11 @@ def insert_leaf_dir(dir, prefix, get_id, insert_result):
                 name = f.replace(prefix, "").replace(".txt", "")
                 # print(f"{destip}")
                 r = get_id(dir, f, hid)
-                print(dir, name, hid, r)
+                # print(dir, name, hid, r
                 if r == 0:
                     r = insert_result(dir, f, hid, ifconfig)
                     if r > 0:
+                        # db.rollback()
                         db.commit()
                     else:
                         db.rollback()
@@ -684,7 +717,7 @@ if __name__ == '__main__':
                 find_leaf_dir(mypath, int(sys.argv[3]), "insert_mt")
             else:
                 find_leaf_dir(mypath, 0, "insert_mt")
-        case "curl_insert":
+        case "insert_cur":
             mypath = os.path.abspath(sys.argv[2])
             print(mypath)
             if len(sys.argv) > 3:
@@ -851,7 +884,7 @@ if __name__ == '__main__':
                         f += [list(n)]
                     f += [[]]
                 df = pd.DataFrame(f)
-                df.to_excel(writer, sheet_name=f"lost_{l1}-{l2}", index=False, header=False)
+                df.to_excel(writer, sheet_name=f"lost_{l1}-{l2}"[:31], index=False, header=False)
 
 
             lost_output("95.0", "99.9999999")
@@ -912,7 +945,7 @@ if __name__ == '__main__':
                 f = sheet[key]
                 df = pd.DataFrame(f)
                 v = key.split(':')
-                df.to_excel(writer, sheet_name=f"{v[0]}-{v[1]}", index=False, header=False)
+                df.to_excel(writer, sheet_name=f"{v[0].replace('IPSec ', '').replace('ZS', '')}-{v[1]}"[:31], index=False, header=False)
             writer.close()
 
         # case "ana" :
@@ -955,7 +988,7 @@ if __name__ == '__main__':
                 f = sheet[key]
                 df = pd.DataFrame(f)
                 v = key.split(':')
-                df.to_excel(writer, sheet_name=f"{v[0]} {v[1]}", index=False, header=False)
+                df.to_excel(writer, sheet_name=f"{v[0].replace('IPSec ', '').replace('ZS', '')} {v[1]}"[:31], index=False, header=False)
             writer.close()
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
