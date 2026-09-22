@@ -492,10 +492,8 @@ def insert_cur_node(ifconfig, dateid, dir, name, host_index, curName,
         if isinstance(item, (tuple, list)):
             print(f"!!! Error found at index {i}: Element is a {type(item)} -> {item}")
 
-    print(sql)
-    print(val)
-    cursor.execute(sql, val)
-
+    # print(sql)
+    # print(val)
     return insert_db(sql, val)
 
 
