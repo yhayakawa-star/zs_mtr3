@@ -4,6 +4,7 @@ import re
 import sys
 from os import listdir
 from os.path import isdir, isfile, join
+from pathlib import Path
 
 import pymysql
 import pandas as pd
@@ -477,28 +478,31 @@ def get_cur_id(dir, name, host_index):
         return 0
 
 
-def insert_cur_node(ifconfig, dir, name, host_index, curName,
+def insert_cur_node(ifconfig, dateid, dir, name, host_index, curName,
                     http_code, time_namelookup, time_connect,
                     speed_download, time_appconnect, time_starttransfer, time_total):
-    sql = ("insert into curl(ifconfig, dir, name, host_index, url, "
+    sql = ("insert into curl(ifconfig, dateid, dir, name, host_index, url, "
            "http_code, time_namelookup, "
            "time_connect, speed_download, time_appconnect, time_starttransfer, time_total) "
-           "values(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)")
-    val = (' '.join(ifconfig), dir, name, host_index, curName, http_code, time_namelookup, time_connect, speed_download,
+           "values(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)")
+    val = (' '.join(ifconfig), dateid, dir, name, host_index, curName, http_code, time_namelookup, time_connect, speed_download,
            time_appconnect, time_starttransfer, time_total)
     # Insert this temporary check at line 134
     for i, item in enumerate(val):
         if isinstance(item, (tuple, list)):
             print(f"!!! Error found at index {i}: Element is a {type(item)} -> {item}")
 
+    print(sql)
+    print(val)
     cursor.execute(sql, val)
 
     return insert_db(sql, val)
 
 
-def insert_cur_result(dir, name, host_index, ifconfig):
+def insert_cur_result(dir, cur_fname, host_index, ifconfig):
     # print("insert_cur_result")
-    lines = read_file(dir, name)
+    # name is dateid
+    lines = read_file(dir, cur_fname)
     node_count = 0
     curName = ''
     for l in lines:
@@ -513,7 +517,9 @@ def insert_cur_result(dir, name, host_index, ifconfig):
             print(f"cur {m.group(1)}, {m.group(2)}, {m.group(3)}, {m.group(4)}, {m.group(5)},"
                   f"{m.group(6)}, {m.group(7)}")
             if curName:
-                cid = insert_cur_node(ifconfig, dir, name, host_index, curName,
+                path = Path(dir)
+                dateid = path.name
+                cid = insert_cur_node(ifconfig, dateid, dir, cur_fname, host_index, curName,
                                       m.group(1), m.group(2), m.group(3), m.group(4),
                                       m.group(5), m.group(6), m.group(7))
                 node_count += 1
@@ -945,7 +951,8 @@ if __name__ == '__main__':
                 f = sheet[key]
                 df = pd.DataFrame(f)
                 v = key.split(':')
-                df.to_excel(writer, sheet_name=f"{v[0].replace('IPSec ', '').replace('ZS', '')}-{v[1]}"[:31], index=False, header=False)
+                df.to_excel(writer, sheet_name=f"{v[0].replace('IPSec', '').replace('ZS3', '')[:4]}-{v[1]}"[:31],
+                            index=False, header=False)
             writer.close()
 
         # case "ana" :
@@ -988,7 +995,15 @@ if __name__ == '__main__':
                 f = sheet[key]
                 df = pd.DataFrame(f)
                 v = key.split(':')
-                df.to_excel(writer, sheet_name=f"{v[0].replace('IPSec ', '').replace('ZS', '')} {v[1]}"[:31], index=False, header=False)
+                df.to_excel(writer, sheet_name=f"{v[0].replace('IPSec', '').replace('ZS3', '')[:4]} {v[1]}"[:31],
+                            index=False, header=False)
             writer.close()
+        case "get_cur" if len(sys.argv) > 2:
+            startdate = sys.argv[2]
+            parser = argparse.ArgumentParser()
+            parser.add_argument('-edate')
+            parser.add_argument('-filename')
+            args = parser.parse_args(sys.argv[3:])
+
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/

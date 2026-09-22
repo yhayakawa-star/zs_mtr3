@@ -6,6 +6,7 @@ DROP TABLE IF EXISTS `host_index`;
 CREATE TABLE `host_index` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `ts` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  'dc` varchar(255) NOT NULL,
   `hostname` varchar(255) NOT NULL,
   `hostname_ip` varchar(255) NOT NULL,
   `ipzscaler` text NOT NULL,
@@ -19,9 +20,12 @@ DROP TABLE IF EXISTS `curl`;
 CREATE TABLE `curl` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `ts` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  `host_index` BIGINT NOT NULL, --
   `ifconfig` text NOT NULL,
-  `url` varchar(255) NOT NULL, -- filename
+  `dateid` BIGINT NOT NULL,   -- same as dir
+  `dir` varchar(255) NOT NULL,  -- parent dir
+  `name` varchar(255) NOT NULL, -- filename
+  `host_index` BIGINT NOT NULL, --
+  `url` varchar(255) NOT NULL, -- url
   `http_code` int not null,
   `time_namelookup` float not null,
   `time_connect` float not null, 
@@ -29,7 +33,7 @@ CREATE TABLE `curl` (
   `time_appconnect` float not null,
   `time_starttransfer` float not null,
   `time_total` float not null,
-  PRIMARY KEY (`id`),
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 DROP TABLE IF EXISTS `mtr`;
