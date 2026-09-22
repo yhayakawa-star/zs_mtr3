@@ -136,3 +136,6 @@ GRANT ALL on zs_mtr_db3.* TO 'mtr'@'ip-172-31-42-107.ap-northeast-1.compute.inte
 
 create user 'ubuntu'@'localhost' identified by 'Passwd88!';
 GRANT ALL on zs_mtr_db3.* TO 'ubuntu'@'localhost';
+
+create user 'mtr'@'10.0.0.170' identified by 'Passwd88!';
+GRANT ALL on zs_mtr_db3.* TO 'mtr'@'10.0.0.170'
